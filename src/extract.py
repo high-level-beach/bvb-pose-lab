@@ -3,6 +3,9 @@ import mediapipe as mp
 from pathlib import Path
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from src.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 def get_landmarks(image_path: Path, model_path: Path) -> dict:
@@ -29,14 +32,16 @@ def get_landmarks(image_path: Path, model_path: Path) -> dict:
         If detection fails.
     """
     if not image_path.exists():
+        logger.error(f"Image file not found: {image_path}")
         raise FileNotFoundError(f"Image file not found: {image_path}")
     if not model_path.exists():
+        logger.error(f"Model file not found: {model_path}")
         raise FileNotFoundError(f"Model file not found: {model_path}")
 
-    # Load image
+    logger.info(f"Loading image from {image_path}")
     image = mp.Image.create_from_file(str(image_path))
 
-    # Setup PoseLandmarker
+    logger.debug("Initializing MediaPipe PoseLandmarker...")
     base_options = python.BaseOptions(model_asset_path=str(model_path))
     options = vision.PoseLandmarkerOptions(
         base_options=base_options,
@@ -45,13 +50,14 @@ def get_landmarks(image_path: Path, model_path: Path) -> dict:
     )
     detector = vision.PoseLandmarker.create_from_options(options)
 
-    # Run detection
+    logger.debug("Running pose detection...")
     result = detector.detect(image)
 
     if len(result.pose_landmarks) == 0:
+        logger.warning(f"No pose detected in image: {image_path}")
         raise ValueError(f"No pose detected in image: {image_path}")
 
-    # Only supporting 1 person (index 0)
+    logger.info(f"Pose landmarks detected for 1 person in {image_path}")
     lm = result.pose_landmarks[0]
     world_lm = result.pose_world_landmarks[0]
 
@@ -69,10 +75,10 @@ def get_landmarks(image_path: Path, model_path: Path) -> dict:
         "world_landmarks": world,
     }
 
-    # Grab the segmentation mask
     if result.segmentation_masks:
+        logger.debug("Segmentation mask detected and included in output.")
         mask = result.segmentation_masks[0].numpy_view()
-        output["segmentation_mask"] = mask  # You can visualize or post-process this later
+        output["segmentation_mask"] = mask
 
+    logger.debug(f"Returning {len(landmarks)} 2D landmarks and {len(world)} world landmarks.")
     return output
-    
