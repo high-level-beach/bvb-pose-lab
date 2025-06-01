@@ -33,3 +33,7 @@ coverage.xml
 
 # Models
 *.task
+
+# Logs
+logs/
+*.log
